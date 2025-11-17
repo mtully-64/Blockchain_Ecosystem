@@ -136,5 +136,4 @@ if __name__ == "__main__":
         # Nice error handling
         print(f"\nUnknown role: {role}")
         print("The only valid roles: bootstrap, miner, wallet\n")
-
         sys.exit(1)

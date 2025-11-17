@@ -13,7 +13,7 @@ class Miner:
     Allows a wallet to connect with itself and submit transactions,
     The miner will broadcast all of these transactions to the network
     """
-    def __init__(self, name: str, host: str = "127.0.0.1", port: int = 9101, bootstrap_host: str = "127.0.0.1", bootstrap_port: int = 8333, difficulty: int = 1, trans_per_block: int = 4):
+    def __init__(self, name: str, host: str = "127.0.0.1", port: int = 9101, bootstrap_host: str = "127.0.0.1", bootstrap_port: int = 8333, difficulty: int = 3, trans_per_block: int = 4):
         self.name = name
 
         # Storing the host and port of the miner
@@ -164,23 +164,77 @@ class Miner:
             print(f"[Miner {self.name}] Error: {e}")
             return False
 
+    def send_blockchain_data(self, conn, start_index):
+        """
+        Send blockchain blocks to wallet starting from start_index
+        This connection will close after sending data, so thats its constantly refreshing new info
+        """
+        try:
+            with self._blockchain_lock:
+                # Get blocks from start_index onwards
+                if start_index < 0:
+                    start_index = 0
+                
+                blocks_to_send = self._blockchain[start_index:] if start_index < len(self._blockchain) else []
+            
+            if not blocks_to_send:
+                # No new blocks, just send END
+                formatter.send_line(conn, "END_BLOCKS")
+                return
+            
+            # Send each block
+            for i, blk in enumerate(blocks_to_send, start=start_index):
+                formatter.send_line(conn, f"BLOCK {i} {len(blk.data)}")
+                
+                # Send each transaction in the block
+                for tx in blk.data:
+                    tx_str = f"TX: {tx.sender},{tx.receiver},{tx.amount},{tx.fee},{tx.transaction_id}"
+                    formatter.send_line(conn, tx_str)
+            
+            # Signal end of blocks
+            formatter.send_line(conn, "END_BLOCKS")
+            
+        except Exception as e:
+            print(f"[Miner {self.name}] Error sending blockchain: {e}")
+            try:
+                formatter.send_line(conn, "END_BLOCKS")
+            except:
+                pass
+
     def handle_client(self, connection, address, first_line=None):
         """Function to handle when a wallet connects to a miner"""
-        print(f"\n[Miner {self.name}] Wallet {address} connected")
+        #print(f"\n[Miner {self.name}] Wallet {address} connected")
         try:
             if first_line:
+                # Check if this is a blockchain query
+                if first_line.startswith("GET_BLOCKS"):
+                    parts = first_line.split()
+                    start_index = int(parts[1]) if len(parts) > 1 else 0
+                    # Send blockchain data and close that connection
+                    self.send_blockchain_data(connection, start_index)
+                    return
+                
+                # Otherwise process as transaction
                 if self.process_transaction_message(first_line):
                     formatter.send_line(connection, "OK")
 
+            # Keep connection open for persistent transaction sending
             while True:
                 line = formatter.receive_line(connection)
                 if not line or line.strip().lower() == "exit":
                     break
                 
+                # Now handle GET_BLOCKS in the loop
+                if line.startswith("GET_BLOCKS"):
+                    parts = line.split()
+                    start_index = int(parts[1]) if len(parts) > 1 else 0
+                    self.send_blockchain_data(connection, start_index)
+                    continue
+                
                 if self.process_transaction_message(line):
                     formatter.send_line(connection, "OK")
         finally:
-            print(f"[Miner {self.name}] Wallet {address} disconnected")
+            #print(f"[Miner {self.name}] Wallet {address} disconnected")
             try:
                 connection.close()
             except:
