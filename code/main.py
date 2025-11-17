@@ -42,13 +42,13 @@ if __name__ == "__main__":
         print()
         print("1 - Terminal 1: python main.py bootstrap")
         print("2 - Terminal 2: python main.py miner Miner1 9001")
-        print("3 - Terminal 3: python your_file.py miner Miner2 9002")
-        print("4 - Terminal 4: python your_file.py miner Miner3 9003")
-        print("5 - Terminal 5: python your_file.py wallet Dimi")
-        print("6 - Terminal 6: python your_file.py wallet Mark")
-        print("7 - Terminal 7: python your_file.py wallet Jack")
-        print("8 - Terminal 8: python your_file.py wallet John")
-        print("9 - Terminal 9: python your_file.py wallet Adam")
+        print("3 - Terminal 3: python main.py miner Miner2 9002")
+        print("4 - Terminal 4: python main.py miner Miner3 9003")
+        print("5 - Terminal 5: python main.py wallet Dimi")
+        print("6 - Terminal 6: python main.py wallet Mark")
+        print("7 - Terminal 7: python main.py wallet Jack")
+        print("8 - Terminal 8: python main.py wallet John")
+        print("9 - Terminal 9: python main.py wallet Adam")
         
         print()
         print("-"*100)
@@ -136,4 +136,5 @@ if __name__ == "__main__":
         # Nice error handling
         print(f"\nUnknown role: {role}")
         print("The only valid roles: bootstrap, miner, wallet\n")
+
         sys.exit(1)
