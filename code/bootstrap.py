@@ -7,7 +7,7 @@ class Bootstrap:
     Creating a bootstrapping node
     A bootstrapping node is a node that provides the initial configuration info to new nodes to join the network
     The new nodes that use it to connect to the network are the "Miners"
-    Multiple miners can connect to it in parallel
+    Multiple miners can connect to it in parallel to this node
     """
     def __init__(self, host: str = "127.0.0.1", port: int = 8333):
         # All of this code is got from Dimi in Week 6 lecture, "building a simple directory service"

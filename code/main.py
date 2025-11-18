@@ -133,7 +133,7 @@ if __name__ == "__main__":
         wallet.wallet_loop()
 
     else:
-        # Nice error handling
+        # Error handling
         print(f"\nUnknown role: {role}")
         print("The only valid roles: bootstrap, miner, wallet\n")
         sys.exit(1)

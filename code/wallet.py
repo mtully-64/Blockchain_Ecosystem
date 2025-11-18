@@ -89,6 +89,84 @@ class Wallet:
 
         return cost_covering_tx
     
+    def get_available_miners(self, bootstrap_host: str = "127.0.0.1", bootstrap_port: int = 8333):
+        """
+        In the case of miner crash and loss of connection, I need to look for a list of all available miners from the bootstrap node
+        """
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as wallet_socket:
+                wallet_socket.connect((bootstrap_host, bootstrap_port))
+                formatter.send_line(wallet_socket, "LIST")
+                miners = []
+                while True:
+                    line = formatter.receive_line(wallet_socket)
+                    if not line:
+                        break
+                    if line == "END":
+                        break
+                    parts = line.split()
+                    if len(parts) == 3:
+                        miner, host, port_str = parts
+                        try:
+                            miners.append((miner, host, int(port_str)))
+                        except:
+                            pass
+                return miners
+        except Exception as e:
+            print(f"[Wallet {self.owner}] Error querying bootstrap node: {e}")
+            return []    
+    
+    def reconnect_to_miner(self, bootstrap_host: str ="127.0.0.1", bootstrap_port: int = 8333, exclude_current: bool = True):
+        """Reconnect to a different miner in the event that the current one crashes/fails"""
+        # Close the existing connection
+        if self.miner_socket:
+            try:
+                self.miner_socket.close()
+            except:
+                pass
+            self.miner_socket = None
+
+        current_miner_name = self.connected_miner["miner"] if self.connected_miner else None
+
+        # Get the list of the available miners
+        miners = self.get_available_miners(bootstrap_host, bootstrap_port)
+        
+        if not miners:
+            print(f"\n[Wallet {self.owner}] ERROR - No miners available for reconnection")
+            self.connected_miner = None
+            return False
+        
+        # Filter out that failed miner if its shown in the list
+        if exclude_current and current_miner_name:
+            miners = [(m, h, p) for m, h, p in miners if m != current_miner_name]
+        
+        if not miners:
+            print(f"\n[Wallet {self.owner}] ERROR - No alternative miners available")
+            self.connected_miner = None
+            return False
+        
+        # Try to connect to each miner until one succeeds
+        for miner, host, port in miners:
+            try:
+                print(f"\n[Wallet {self.owner}] Attempting to connect to {miner}...")
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect((host, port))
+                self.miner_socket = sock
+                self.connected_miner = {"miner": miner, "host": host, "port": port}
+                print(f"[Wallet {self.owner}] Successfully reconnected to {miner} @ {host}:{port}")
+                return True
+            except Exception as e:
+                print(f"[Wallet {self.owner}] Failed to connect to {miner}: {e}")
+                try:
+                    sock.close()
+                except:
+                    pass
+                continue
+        
+        print(f"\n[Wallet {self.owner}] ERROR - Could not reconnect to any miner")
+        self.connected_miner = None
+        return False
+
     def query_blockchain_updates(self):
         """
         Queries the miner for blockchain updates using a temp connection, thats refreshed
@@ -96,49 +174,68 @@ class Wallet:
         if not self.connected_miner:
             return
         
+        # I will give the wallet 3 chances to reconnect - due to error handling
+        max_retries = 3
+        retry_count = 0
+        
         # Open a temporary connection
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as query_socket:
-                # Connect to our miner
-                query_socket.connect((self.connected_miner['host'], self.connected_miner['port']))
+        while retry_count < max_retries:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as query_socket:
+                    # Connect to our miner
+                    query_socket.connect((self.connected_miner['host'], self.connected_miner['port']))
                 
-                # Send blockchain query
-                formatter.send_line(query_socket, f"GET_BLOCKS {self.last_processed_block_index + 1}")
+                    # Send blockchain query
+                    formatter.send_line(query_socket, f"GET_BLOCKS {self.last_processed_block_index + 1}")
                 
-                # Read blocks until END_BLOCKS
-                while True:
-                    line = formatter.receive_line(query_socket)
-                    if not line or line == "END_BLOCKS":
-                        break
+                    # Read blocks until END_BLOCKS
+                    while True:
+                        line = formatter.receive_line(query_socket)
+                        if not line or line == "END_BLOCKS":
+                            break
                     
-                    # Now I have to parse the incoming message
-                    if line.startswith("BLOCK"):
-                        parts = line.split()
-                        if len(parts) >= 3:
-                            block_index = int(parts[1])
-                            num_txs = int(parts[2])
-                            
-                            # Read each transaction in this block
-                            for _ in range(num_txs):
-                                tx_line = formatter.receive_line(query_socket)
-                                if tx_line.startswith("TX:"):
-                                    tx_data = tx_line[3:].strip().split(",")
-                                    if len(tx_data) >= 5:
-                                        sender = tx_data[0].strip()
-                                        receiver = tx_data[1].strip()
-                                        amount = float(tx_data[2].strip())
-                                        fee = float(tx_data[3].strip())
-                                        tx_id = tx_data[4].strip()
-                                        
-                                        # If this transaction is for this wallet then add it
-                                        if receiver == self.owner:
-                                            tx = transaction.Transaction(sender, receiver, amount, fee)
-                                            self.add_transaction(tx)
-                            
-                            self.last_processed_block_index = block_index
+                        # Now I have to parse the incoming message
+                        if line.startswith("BLOCK"):
+                            parts = line.split()
+                            if len(parts) >= 3:
+                                block_index = int(parts[1])
+                                num_txs = int(parts[2])
+                                
+                                # Read each transaction in this block
+                                for _ in range(num_txs):
+                                    tx_line = formatter.receive_line(query_socket)
+                                    if tx_line.startswith("TX:"):
+                                        tx_data = tx_line[3:].strip().split(",")
+                                        if len(tx_data) >= 5:
+                                            sender = tx_data[0].strip()
+                                            receiver = tx_data[1].strip()
+                                            amount = float(tx_data[2].strip())
+                                            fee = float(tx_data[3].strip())
+                                            tx_id = tx_data[4].strip()
+                                            
+                                            # If this transaction is for this wallet then add it
+                                            if receiver == self.owner:
+                                                tx = transaction.Transaction(sender, receiver, amount, fee)
+                                                self.add_transaction(tx)
+                                
+                                self.last_processed_block_index = block_index
+
+                    # If we connect again then break this retry loop  
+                    break
+
+            except Exception as e:
+                retry_count += 1
+                print(f"[Wallet {self.owner}] Error querying blockchain ({retry_count}/{max_retries}): {e}")
                 
-        except Exception as e:
-            print(f"[Wallet {self.owner}] Error querying blockchain: {e}")
+                if retry_count >= max_retries:
+                    print(f"[Wallet {self.owner}] Miner connection lost, attempting to reconnect...")
+                    if self.reconnect_to_miner():
+                        retry_count = 0  # I fucked up and forgot to reset this
+                    else:
+                        print(f"[Wallet {self.owner}] Could not reconnect to any miner")
+                        break
+                else:
+                    time.sleep(1)
     
     def blockchain_monitor(self):
         """
@@ -148,7 +245,39 @@ class Wallet:
         while self.running:
             self.query_blockchain_updates()
             time.sleep(10)
-    
+
+    def send_transaction_with_retry(self, transaction_message, max_retries=3):
+        """Send the transaction where it retries and reconnects on failure"""
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            if not self.miner_socket or not self.connected_miner:
+                print(f"[Wallet {self.owner}] Not connected to a miner, attempting to reconnect...")
+                if not self.reconnect_to_miner():
+                    return False
+            
+            try:
+                # Attempt to send transaction
+                formatter.send_line(self.miner_socket, transaction_message)
+                print(f"\n[Wallet {self.owner}] Sent transaction to miner {self.connected_miner['miner']}")
+                return True
+                
+            except Exception as e:
+                retry_count += 1
+                print(f"[Wallet {self.owner}] Error sending the transaction ({retry_count}/{max_retries}): {e}")
+                
+                # Connection failed, try to reconnect
+                print(f"[Wallet {self.owner}] Miner connection lost, attempting to reconnect...")
+                if self.reconnect_to_miner():
+                    # Successfully reconnected, continue retry loop
+                    continue
+                else:
+                    print(f"[Wallet {self.owner}] Could not reconnect to any miner")
+                    return False
+        
+        print(f"[Wallet {self.owner}] Failed to send transaction after {max_retries} attempts")
+        return False
+
     def wallet_loop(self):
         """
         In order to do task 3, I need a loop running
@@ -211,19 +340,16 @@ class Wallet:
                         self.add_transaction(change_tx)
                         print(f"\n[Wallet {self.owner}] Change of {change} coins returned back")
 
-                    # Now you send the transaction from the wallet to the miner you randomly connected to
-                    if self.miner_socket:
-                        try:
-                            transaction_message = f"Transaction: {new_transaction.sender}, {new_transaction.receiver}, {new_transaction.amount}, {new_transaction.fee}, {new_transaction.transaction_id}"
+                    transaction_message = f"Transaction: {new_transaction.sender}, {new_transaction.receiver}, {new_transaction.amount}, {new_transaction.fee}, {new_transaction.transaction_id}"
 
-                            # Using the function send the string converted to the miner socket address
-                            formatter.send_line(self.miner_socket, transaction_message)
-
-                            print(f"\n[Wallet {self.owner}] Sent transaction to miner {self.connected_miner['miner']}")
-                        except Exception as e:
-                            print(f"[Wallet {self.owner} Error in sending transaction - {e}]")
-                    else:
-                        print(f"[Wallet {self.owner}] Not connected to a miner")
+                    if not self.send_transaction_with_retry(transaction_message):
+                        # Transaction failed after all my retry attempts, so just revert UTXOs
+                        print(f"[Wallet {self.owner}] Transaction failed - reverting UTXOs")
+                        for tx in selected_transactions:
+                            self.tx_received.append(tx)
+                        if change > 0:
+                            # Undo the change transaction we added
+                            self.tx_received = [tx for tx in self.tx_received if tx.transaction_id != change_tx.transaction_id]
 
             # Part (ii) - terminate the wallet
             elif reply == "exit":
