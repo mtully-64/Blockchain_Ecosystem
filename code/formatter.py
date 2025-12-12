@@ -6,7 +6,7 @@ def data_helper(sender: str, receiver: str, amount: str, time: float):
     data = f"{sender},{receiver},{amount},{str(time)}"
     return data
 
-# These helper functions were outlined to send/receive a string across a socket (slide 43 in Week 6 and code file no. 8)
+# These helper functions were outlined to send/receive a string across a socket
 def send_line(sock, s):
     """
     Function to send a line over a socket

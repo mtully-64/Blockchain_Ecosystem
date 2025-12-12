@@ -104,15 +104,15 @@ if __name__ == "__main__":
         # Create the wallet
         wallet = wallet.Wallet(wallet_name)
         
-        # Now for task 9, I will give an initial 100 Trump coins
-        trump_coins = 100
+        # Now for task 9, I will give an initial 100 Bitcoin coins
+        bitcoin_coins = 100
 
-        print(f"\n[Wallet {wallet_name}] Receiving {trump_coins} Trump coins from Genesis")
+        print(f"\n[Wallet {wallet_name}] Receiving {bitcoin_coins} Bitcoins from Genesis")
 
-        genesis_tx = transaction.Transaction("Genesis", wallet_name, trump_coins, 0)
+        genesis_tx = transaction.Transaction("Genesis", wallet_name, bitcoin_coins, 0)
         wallet.add_transaction(genesis_tx)
         
-        print(f"\n[Wallet {wallet_name}] You now start with {wallet.wallet_balance()} Trump coins")
+        print(f"\n[Wallet {wallet_name}] You now start with {wallet.wallet_balance()} Bitcoins")
         
         # Connect the Wallet to the Bootstrap and get random Miner
         print(f"\n[Wallet {wallet_name}] Connecting to Bootstrap node...")

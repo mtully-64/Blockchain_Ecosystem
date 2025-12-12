@@ -32,7 +32,7 @@ class Miner:
         self._mempool_lock = threading.Lock()
         self._mempool = queue.PriorityQueue() # Priority queue as taught
 
-        # I copied this from my tutorial work, to ensure that 2 transactions with the same fee won't crash the PriorityQueue
+        # Ensure that 2 transactions with the same fee won't crash the PriorityQueue
         self._mempool_seq = 0
         self._seq_lock = threading.Lock()
 
@@ -41,7 +41,7 @@ class Miner:
 
         # I have to make a lock to the blockchain, since my own miner has multiple threads wanting to read/write
         self._blockchain_lock = threading.Lock()
-        self._blockchain = [] # By the end of this assignment I realised that a list works, of blocks that are then 'linked' to one another
+        self._blockchain = [] # I realised that a list works, of blocks that are then 'linked' to one another
 
         # I need to dictate the number of transactions per block
         self.min_trans = trans_per_block
@@ -120,10 +120,9 @@ class Miner:
         try:
             if message.startswith("Transaction:"):
                 transaction_data = message.replace("Transaction:", "")
-                # Dimi wanted me to make this machine readable
+                # Machine readable
                 transaction_data = transaction_data.strip().split(",") 
 
-                # Idk what other way you would do this
                 if len(transaction_data) >= 5:
                     sender = transaction_data[0].strip()
                     receiver = transaction_data[1].strip()
@@ -203,7 +202,6 @@ class Miner:
 
     def handle_client(self, connection, address, first_line=None):
         """Function to handle when a wallet connects to a miner"""
-        #print(f"\n[Miner {self.name}] Wallet {address} connected")
         try:
             if first_line:
                 # Check if this is a blockchain query
@@ -234,7 +232,6 @@ class Miner:
                 if self.process_transaction_message(line):
                     formatter.send_line(connection, "OK")
         finally:
-            #print(f"[Miner {self.name}] Wallet {address} disconnected")
             try:
                 connection.close()
             except:
@@ -264,7 +261,7 @@ class Miner:
 
     def connect_to_peer(self, peer_host, peer_port, peer_name):
         """Function used to connect Miner to peer"""
-        # If the name is my name (the mimer) or the name is already a connected peer, then we don't need to connect
+        # If the name is my name (the miner) or the name is already a connected peer, then we don't need to connect
         if peer_name == self.name or peer_name in self.peer_names():
             return
         try:
@@ -313,7 +310,7 @@ class Miner:
                     if self._mempool.qsize() >= self.min_trans:
                         for i in range(self.min_trans):
                             try:
-                                priority, seq, tx = self._mempool.get_nowait() # Dimi said if you put in block it will wait forever until everything finally appears in the queue
+                                priority, seq, tx = self._mempool.get_nowait()
                                 selected_transactions.append(tx)
                                 self._mempool.task_done()
                                 # This is where I want to check for duplicates from before
@@ -339,7 +336,6 @@ class Miner:
                         if self._blockchain:
                             previous_hash = self._blockchain[-1].hash
                         else:
-                            # I didnt know what to do for the genesis block
                             previous_hash = "0" * 64 
 
                     try:

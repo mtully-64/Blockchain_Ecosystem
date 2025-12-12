@@ -10,19 +10,15 @@ class Bootstrap:
     Multiple miners can connect to it in parallel to this node
     """
     def __init__(self, host: str = "127.0.0.1", port: int = 8333):
-        # All of this code is got from Dimi in Week 6 lecture, "building a simple directory service"
         self.host = host
         self.port = port
 
         self._registry_lock = threading.Lock()
-        # Dimi does self._registry as a list, so i will do that where each item in the list (each miner's reg info) is a dictionary
-        # A dictionary for each miner, mapped to ip and port values (since there is more than 1 variable to store)
-        # For each miner in the registry list = {"miner": "Miner_Dimi, "host": "127.0.0.1", "port":"9001"}
         self._registry = []
 
     def bootstrap_handler(self, conn, addr):
         with conn:
-            # line is the string received at the bootstrap node's socket
+            # Line is the string received at the bootstrap node's socket
             # It will be a command to either register a new miner or list current miner info
             line = formatter.receive_line(conn) # command will either be REGISTER or LIST
             if not line:

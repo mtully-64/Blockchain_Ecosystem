@@ -38,7 +38,6 @@ class Wallet:
     
     def see_all_transactions(self):
         """
-        Implementing (i) of Task 3
         Show all transactions where the owner is the receiver
         """
         if not self.tx_received:
@@ -52,7 +51,6 @@ class Wallet:
 
     def select_sufficient_transactions(self, amount: float | int, fee: float | int):
         """
-        Still continuing (i) of Task 3
         This is where they have accepted to send a transaction to another owner and must select transactions
         """
         amount = float(amount)
@@ -280,7 +278,7 @@ class Wallet:
 
     def wallet_loop(self):
         """
-        In order to do task 3, I need a loop running
+        I need a running loop for each wallet
         Each loop will be in a thread, I presume the loop is constantly running for each wallet
         """
         print(f"[Wallet {self.owner}] Threaded loop starting")
@@ -296,7 +294,7 @@ class Wallet:
             reply = input(f"\n[Wallet {self.owner}] Would you like to send a transaction to another owner [yes/no/exit]?\n")
             reply = reply.strip().lower()
 
-            # Part (i) - to send to an owner
+            # To send to an owner
             if reply == "yes":
                 # collate information on transaction - receivee, amount and fee
                 try:
@@ -351,13 +349,13 @@ class Wallet:
                             # Undo the change transaction we added
                             self.tx_received = [tx for tx in self.tx_received if tx.transaction_id != change_tx.transaction_id]
 
-            # Part (ii) - terminate the wallet
+            # Terminate the wallet
             elif reply == "exit":
                 self.running = False
                 print(f"\n[Wallet {self.owner}] Exiting from wallet")
                 break
 
-            # Part (iii) - do not send transaction at this time
+            # Do not send transaction at this time
             elif reply == "no":
                 print(f"\n[Wallet {self.owner}] You have decided not to send a transaction")
             
