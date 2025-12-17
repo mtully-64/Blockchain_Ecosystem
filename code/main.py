@@ -104,7 +104,7 @@ if __name__ == "__main__":
         # Create the wallet
         wallet = wallet.Wallet(wallet_name)
         
-        # Now for task 9, I will give an initial 100 Bitcoin coins
+        # I will give an initial 100 Bitcoin coins
         bitcoin_coins = 100
 
         print(f"\n[Wallet {wallet_name}] Receiving {bitcoin_coins} Bitcoins from Genesis")
